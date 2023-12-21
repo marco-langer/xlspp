@@ -1,0 +1,55 @@
+Checks: '
+    modernize*,
+    bugprone*,
+    cppcoreguidelines*,
+    google-explicit-constructor,
+    misc-const-correctness,
+    misc-definitions-in-headers,
+    misc-misplaced-const,
+    misc-redundant-expression,
+    misc-static-assert,
+    misc-throw-by-value-catch-by-reference,
+    misc-unconventional-assign-operator,
+    misc-uniqueptr-reset-release,
+    misc-unused-alias-decls,
+    misc-unused-parameters,
+    misc-unused-using-decls,
+    misc-use-anonymous-namespace,
+    performance-for-range-copy,
+    performance-implicit-conversion-in-loop,
+    performance-inefficient-algorithm,
+    performance-inefficient-string-concatenation,
+    performance-inefficient-vector-operation,
+    performance-move-const-arg
+'
+
+WarningsAsErrors: '
+    modernize*,
+    bugprone*,
+    cppcoreguidelines*,
+    google-explicit-constructor,
+    misc-const-correctness,
+    misc-definitions-in-headers,
+    misc-misplaced-const,
+    misc-redundant-expression,
+    misc-static-assert,
+    misc-throw-by-value-catch-by-reference,
+    misc-unconventional-assign-operator,
+    misc-uniqueptr-reset-release,
+    misc-unused-alias-decls,
+    misc-unused-parameters,
+    misc-unused-using-decls,
+    misc-use-anonymous-namespace,
+    performance-for-range-copy,
+    performance-implicit-conversion-in-loop,
+    performance-inefficient-algorithm,
+    performance-inefficient-string-concatenation,
+    performance-inefficient-vector-operation,
+    performance-move-const-arg
+'
+
+CheckOptions:
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: true
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted
+    value: true
