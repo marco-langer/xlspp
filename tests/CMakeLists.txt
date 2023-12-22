@@ -1,9 +1,7 @@
 enable_testing()
 
 find_package(GTest CONFIG REQUIRED)
-message(STATUS "Using googletest ${GTest_VERSION}")
 find_package(range-v3 CONFIG REQUIRED)
-message(STATUS "Using range-v3 ${range-v3_VERSION}")
 
 add_executable(xlspp-tests)
 
@@ -19,7 +17,7 @@ target_sources(xlspp-tests
 
 target_link_libraries(xlspp-tests
     PRIVATE
-        xlspp-test
+        xlspp-static
         GTest::gtest_main
         range-v3::range-v3
 )
