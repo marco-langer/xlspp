@@ -9,7 +9,7 @@
 
 namespace {
 
-std::string str_tolower(std::string str)
+auto str_tolower(std::string str) -> std::string
 {
     std::ranges::transform(str, str.begin(), [](unsigned char c) { return std::tolower(c); });
     return str;
@@ -50,43 +50,44 @@ auto is_sheet_name_valid(std::string_view name) -> bool
 
 auto parse_worksheet(
     worksheet& worksheet,
-    const tinyxml2::XMLDocument& xml_document,
-    const std::vector<std::string>& shared_strings) -> bool
+    const std::vector<std::string>& shared_strings,
+    const tinyxml2::XMLDocument& xml_document) -> expected<void>
 {
-    const tinyxml2::XMLNode* xml_worksheet = xml_document.FirstChildElement("worksheet");
+    const auto* xml_worksheet = xml_document.FirstChildElement("worksheet");
     if (!xml_worksheet) {
-        return false;
+        return tl::make_unexpected("worksheet element not found");
     }
-    const tinyxml2::XMLNode* sheetData = xml_worksheet->FirstChildElement("sheetData");
-    if (!sheetData) {
-        return false;
+    const auto* sheetData_node = xml_worksheet->FirstChildElement("sheetData");
+    if (!sheetData_node) {
+        return tl::make_unexpected("sheetData node not found");
     }
-    const tinyxml2::XMLNode* row = sheetData->FirstChildElement("row");
-    while (row) {
-        const tinyxml2::XMLNode* col = row->FirstChildElement("c");
-        while (col) {
-            const tinyxml2::XMLElement* col_element = col->ToElement();
+
+    const tinyxml2::XMLNode* row_node = sheetData_node->FirstChildElement("row");
+    while (row_node) {
+        const tinyxml2::XMLNode* col_node = row_node->FirstChildElement("c");
+        while (col_node) {
+            const auto* col_element = col_node->ToElement();
             if (!col_element) {
-                return false;
+                return tl::make_unexpected("col node not an element");
             }
             const char* cell_reference_attribute = col_element->Attribute("r");
             if (!cell_reference_attribute) {
-                return false;
+                return tl::make_unexpected("r attribute not found");
             }
             const std::string cell_reference{ cell_reference_attribute };
             const char* cell_type_attribute = col_element->Attribute("t");
             if (!cell_type_attribute) {
-                return false;
+                return tl::make_unexpected("t attribute not found");
             }
             const xlsx::detail::cell_type cell_type =
                 xlsx::detail::to_cell_type(cell_type_attribute);
-            const tinyxml2::XMLElement* cell_value = col->FirstChildElement("v");
+            const tinyxml2::XMLElement* cell_value = col_element->FirstChildElement("v");
             if (!cell_value) {
-                return false;
+                return tl::make_unexpected("v attribute not found");
             }
             const char* cell_text_value = cell_value->GetText();
             if (!cell_text_value) {
-                return false;
+                return tl::make_unexpected("v attribute not a text");
             }
             const std::string_view cell_text{ cell_text_value };
             switch (cell_type) {
@@ -104,12 +105,36 @@ auto parse_worksheet(
                     cell_reference, xlsx::cell{ cell_reference, &shared_strings.at(string_index) });
             } break;
             }
-            col = col->NextSibling();
+            col_node = col_node->NextSibling();
         }
-        row = row->NextSibling();
+        row_node = row_node->NextSibling();
     }
 
-    return true;
+    return {};
+}
+
+auto serialize_worksheet(
+    const worksheet& worksheet,
+    const std::vector<std::string>& shared_strings,
+    tinyxml2::XMLDocument& xml_document) -> std::string
+{
+    xml_document.Clear();
+
+    xml_document.InsertFirstChild(xml_document.NewDeclaration());
+
+    auto* worksheet_element = xml_document.NewElement("worksheet");
+    worksheet_element->SetAttribute(
+        "xmlns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main");
+    worksheet_element->SetAttribute(
+        "xmlns:r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+
+    worksheet_element->InsertNewChildElement("sheetData");
+
+    xml_document.InsertEndChild(worksheet_element);
+
+    auto printer = tinyxml2::XMLPrinter{ nullptr, true, 0 };
+    xml_document.Print(&printer);
+    return std::string{ printer.CStr(), static_cast<std::size_t>(printer.CStrSize() - 1) };
 }
 
 }   // namespace xlsx::detail

@@ -25,6 +25,9 @@ TEST(write, minimalWorkbook)
     ASSERT_TRUE(std::filesystem::is_regular_file(filepath));
 
     const auto maybe_workbook_read = xlsx::read(filepath);
+    if (!maybe_workbook_read) {
+        FAIL() << maybe_workbook_read.error();
+    }
     ASSERT_TRUE(maybe_workbook_read.has_value());
     const auto& workbook_read = maybe_workbook_read.value();
     EXPECT_EQ(workbook_read.application_name(), "xlspp");

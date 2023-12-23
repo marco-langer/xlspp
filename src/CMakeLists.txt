@@ -1,6 +1,5 @@
 find_package(fmt CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
-find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(tl-expected CONFIG REQUIRED)
 
@@ -37,7 +36,6 @@ target_link_libraries(xlspp-obj
     PRIVATE
         fmt::fmt
         libzip::zip
-        Microsoft.GSL::GSL
         tinyxml2::tinyxml2
 )
 

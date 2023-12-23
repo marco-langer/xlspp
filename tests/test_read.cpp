@@ -61,9 +61,12 @@ TEST(read, defaultFilePythonXlsxWriter)
 
 TEST(read, exampleFile)
 {
-    const std::optional<xlsx::workbook> maybe_workbook = xlsx::read("data/Untitled 1.xlsx");
+    const auto maybe_workbook = xlsx::read("data/Untitled 1.xlsx");
+    if (!maybe_workbook) {
+        FAIL() << maybe_workbook.error();
+    }
     ASSERT_TRUE(maybe_workbook.has_value());
-    const xlsx::workbook& workbook = maybe_workbook.value();
+    const auto& workbook = maybe_workbook.value();
     EXPECT_THAT(worksheet_names(workbook), testing::ElementsAre("My First Sheet", "Sheet2"));
 
     const xlsx::worksheet* worksheet1 = workbook["My First Sheet"];

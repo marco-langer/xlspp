@@ -44,7 +44,7 @@ private:
 
     int m_last_sheet_id{};
     std::vector<std::string> m_shared_strings;
-    std::string m_application_name{ "xlspp " };
+    std::string m_application_name{ "xlspp" };
     std::vector<worksheet> m_worksheets;
 };
 

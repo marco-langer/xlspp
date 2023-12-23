@@ -1,12 +1,12 @@
 #pragma once
 
+#include "error.hpp"
 #include "workbook.hpp"
 
 #include <filesystem>
-#include <optional>
 
 namespace xlsx {
 
-auto read(const std::filesystem::path& filepath) -> std::optional<workbook>;
+[[nodiscard]] auto read(const std::filesystem::path& filepath) -> expected<workbook>;
 
-}
+}   // namespace xlsx

@@ -2,7 +2,6 @@
 
 #include "xlspp/error.hpp"
 
-#include <gsl/pointers>
 #include <tl/expected.hpp>
 #include <zip.h>
 
@@ -22,22 +21,38 @@ struct zip_file_info
 class zip_archive
 {
 public:
+    enum class open_mode
+    {
+        must_exist,
+        create_if_not_exist
+    };
+
     using const_iterator = std::vector<zip_file_info>::const_iterator;
+
+    zip_archive(const zip_archive& other) = delete;
+    zip_archive(zip_archive&& other) noexcept;
+    zip_archive& operator=(const zip_archive& other) = delete;
+    zip_archive& operator=(zip_archive&& other) noexcept;
+    ~zip_archive();
 
     auto begin() const& -> const_iterator;
     auto cbegin() const& -> const_iterator;
     auto end() const& -> const_iterator;
     auto cend() const& -> const_iterator;
 
-    [[nodiscard]] static auto open(const std::filesystem::path& filepath) -> expected<zip_archive>;
+    [[nodiscard]] static auto
+    open(const std::filesystem::path& filepath, open_mode open_mode = open_mode::must_exist)
+        -> expected<zip_archive>;
 
     [[nodiscard]] auto contains(const std::string& relative_filepath) const -> bool;
     [[nodiscard]] auto read_all(const std::string& relative_filepath) const& -> const std::string*;
 
-private:
-    zip_archive(gsl::strict_not_null<zip*> za, std::vector<zip_file_info> file_infos);
+    auto add(std::string_view data, std::string relative_filepath) -> expected<void>;
 
-    gsl::strict_not_null<zip*> m_za;
+private:
+    zip_archive(zip* za, std::vector<zip_file_info> file_infos);
+
+    zip_t* m_za{ nullptr };
     std::vector<zip_file_info> m_file_infos;
     mutable std::string m_buffer;
 };

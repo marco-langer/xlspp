@@ -4,7 +4,7 @@
 
 namespace xlsx {
 
-auto read(const std::filesystem::path& filepath) -> std::optional<workbook>
+auto read(const std::filesystem::path& filepath) -> expected<workbook>
 {
     return detail::reader{}.read(filepath);
 }

@@ -1,7 +1,7 @@
 #include "zip_archive.hpp"
 
 #include <algorithm>
-#include <iostream>   // TODO remove
+
 namespace {
 
 auto get_file_indices(zip* za) -> xlsx::expected<std::vector<xlsx::detail::zip_file_info>>
@@ -36,19 +36,39 @@ auto get_file_indices(zip* za) -> xlsx::expected<std::vector<xlsx::detail::zip_f
 
 namespace xlsx::detail {
 
+zip_archive::zip_archive(zip_archive&& other) noexcept
+    : m_za{ std::exchange(other.m_za, nullptr) }
+    , m_file_infos{ std::move(other.m_file_infos) }
+    , m_buffer{ std::move(other.m_buffer) }
+{}
+
+zip_archive& zip_archive::operator=(zip_archive&& other) noexcept
+{
+    m_za = std::exchange(other.m_za, nullptr);
+    return *this;
+}
+
+zip_archive::~zip_archive()
+{
+    if (m_za) {
+        zip_close(m_za);
+    }
+}
+
 auto zip_archive::begin() const& -> const_iterator { return m_file_infos.begin(); }
 auto zip_archive::cbegin() const& -> const_iterator { return m_file_infos.cbegin(); }
 auto zip_archive::end() const& -> const_iterator { return m_file_infos.end(); }
 auto zip_archive::cend() const& -> const_iterator { return m_file_infos.cend(); }
 
-auto zip_archive::open(const std::filesystem::path& filepath) -> expected<zip_archive>
+auto zip_archive::open(const std::filesystem::path& filepath, open_mode open_mode)
+    -> expected<zip_archive>
 {
-    auto err = int{};
-    // TODO second param?
-    zip* za = zip_open(filepath.string().c_str(), 0, &err);
+    auto error_code = int{};
+    const auto open_flag = (open_mode == open_mode::must_exist) ? 0 : ZIP_CREATE;
+    auto* za = zip_open(filepath.string().c_str(), open_flag, &error_code);
     if (!za) {
         auto error = zip_error_t{};
-        zip_error_init_with_code(&error, err);
+        zip_error_init_with_code(&error, error_code);
         zip_error_strerror(&error);
         return tl::make_unexpected(zip_error_strerror(&error));
     }
@@ -57,7 +77,7 @@ auto zip_archive::open(const std::filesystem::path& filepath) -> expected<zip_ar
         return tl::make_unexpected(maybe_file_indices.error());
     }
 
-    return zip_archive{ gsl::strict_not_null{ za }, std::move(maybe_file_indices.value()) };
+    return zip_archive{ za, std::move(maybe_file_indices.value()) };
 }
 
 auto zip_archive::contains(const std::string& relative_filepath) const -> bool
@@ -69,12 +89,13 @@ auto zip_archive::contains(const std::string& relative_filepath) const -> bool
 auto zip_archive::read_all(const std::string& relative_filepath) const& -> const std::string*
 {
     // TODO error handling
-    auto index_iter = std::ranges::find(m_file_infos, relative_filepath, &zip_file_info::filepath);
+    const auto index_iter =
+        std::ranges::find(m_file_infos, relative_filepath, &zip_file_info::filepath);
     if (index_iter == m_file_infos.end()) {
         return nullptr;
     }
 
-    struct zip_file* zf = zip_fopen_index(m_za, index_iter->index, 0);
+    auto* zf = zip_fopen_index(m_za, index_iter->index, 0);
     if (!zf) {
         return nullptr;
     }
@@ -82,7 +103,7 @@ auto zip_archive::read_all(const std::string& relative_filepath) const& -> const
     m_buffer.clear();
     constexpr auto buffer_size = 1024ULL;
     char buffer[buffer_size];
-    std::string file_content;
+    auto file_content = std::string{};
     auto bytes_read = zip_fread(zf, buffer, buffer_size);
     while (bytes_read > 0) {
         m_buffer.append(buffer, bytes_read);
@@ -95,7 +116,28 @@ auto zip_archive::read_all(const std::string& relative_filepath) const& -> const
     return &m_buffer;
 }
 
-zip_archive::zip_archive(gsl::strict_not_null<zip*> za, std::vector<zip_file_info> file_infos)
+auto zip_archive::add(std::string_view data, std::string relative_filepath) -> expected<void>
+{
+    if (relative_filepath.empty()) {
+        return tl::make_unexpected("filepath empty");
+    }
+
+    auto* source = zip_source_buffer(m_za, data.data(), data.size(), 0);
+    if (!source) {
+        return tl::make_unexpected(zip_strerror(m_za));
+    }
+    const auto added_index =
+        zip_file_add(m_za, relative_filepath.c_str(), source, ZIP_FL_ENC_UTF_8);
+    if (added_index < 0) {
+        return tl::make_unexpected(zip_strerror(m_za));
+    }
+
+    m_file_infos.push_back(zip_file_info{ .index = static_cast<std::size_t>(added_index),
+                                          .filepath = std::move(relative_filepath) });
+    return {};
+}
+
+zip_archive::zip_archive(zip* za, std::vector<zip_file_info> file_infos)
     : m_za{ za }
     , m_file_infos{ std::move(file_infos) }
 {}

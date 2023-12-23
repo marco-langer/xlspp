@@ -9,6 +9,7 @@ target_sources(xlspp-tests
     PRIVATE
         test_read.cpp
         test_read_invalid.cpp
+        test_workbook_utils.cpp
         test_worksheet.cpp
         test_write.cpp
         test_write_invalid.cpp

@@ -5,7 +5,6 @@
     "libzip",
     "fmt",
     "gtest",
-    "ms-gsl",
     "range-v3",
     "tinyxml2",
     "tl-expected"

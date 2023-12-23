@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <span>
+#include <vector>
 
 namespace xl = xlsx::detail;
 
@@ -38,6 +39,25 @@ TEST(zipArchive, openExistingArchive)
     EXPECT_TRUE(maybe_zip_archive.has_value());
 }
 
+TEST(zipArchive, tryOpenNonExistingFile)
+{
+    const auto archive_path = std::filesystem::path{ "data/non-existing-file.txt" };
+    std::filesystem::remove(archive_path);
+    ASSERT_FALSE(std::filesystem::exists(archive_path));
+
+    const auto maybe_zip_archive = xl::zip_archive::open(archive_path);
+    EXPECT_FALSE(maybe_zip_archive.has_value());
+}
+
+TEST(zipArchive, tryOpenInvalidFile)
+{
+    const auto archive_path = std::filesystem::path{ "data/invalid-testfile.txt" };
+    ASSERT_TRUE(std::filesystem::exists(archive_path));
+
+    const auto maybe_zip_archive = xl::zip_archive::open(archive_path);
+    EXPECT_FALSE(maybe_zip_archive.has_value());
+}
+
 TEST(zipArchive, enumerateExistingArchive)
 {
     const auto archive_path = std::filesystem::path{ "data/libreoffice_default.xlsx" };
@@ -57,7 +77,8 @@ TEST(zipArchive, enumerateExistingArchive)
                                         { .index = 6, .filepath = "docProps/app.xml" },
                                         { .index = 7, .filepath = "[Content_Types].xml" } };
 
-    EXPECT_THAT(zip_archive | ranges::to<std::vector>, IsFileInfos(expected_file_infos));
+    const auto file_infos = zip_archive | ranges::to<std::vector>;
+    EXPECT_THAT(file_infos, IsFileInfos(expected_file_infos));
 }
 
 TEST(zipArchive, inflate)
@@ -92,16 +113,43 @@ TEST(zipArchive, inflate)
     EXPECT_THAT(*inflated_file_content, testing::StrEq(expected_content));
 }
 
-TEST(zipArchive, write)
+TEST(zipArchive, addFile)
 {
     const auto archive_path = std::filesystem::path{ "out.zip" };
     std::filesystem::remove(archive_path);
     ASSERT_FALSE(std::filesystem::exists(archive_path));
 
-    auto maybe_zip_archive = xl::zip_archive::open(archive_path);
-    if (!maybe_zip_archive) {
-        FAIL() << maybe_zip_archive.error();
+    const auto zipped_file_path = std::string{ "test dir/test file.txt" };
+    //   const auto file_content = std::string{ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" };
+    const auto file_content = std::string{
+        R"(<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><fileVersion appName="xlspp "/><sheets><sheet name="Sheet1" sheetId="1" state="visible"/></sheets></workbook>)"
+    };
+    {
+        auto maybe_zip_archive =
+            xl::zip_archive::open(archive_path, xl::zip_archive::open_mode::create_if_not_exist);
+        EXPECT_FALSE(std::filesystem::exists(archive_path));
+        ASSERT_TRUE(maybe_zip_archive.has_value());
+        auto& zip_archive = maybe_zip_archive.value();
+
+        zip_archive.add(file_content, zipped_file_path);
     }
-    ASSERT_TRUE(maybe_zip_archive.has_value());
-    auto& zip_archive = maybe_zip_archive.value();
+
+    ASSERT_TRUE(std::filesystem::exists(archive_path));
+
+    {
+        auto maybe_zip_archive = xl::zip_archive::open(archive_path);
+        ASSERT_TRUE(maybe_zip_archive.has_value());
+        auto& zip_archive = maybe_zip_archive.value();
+
+        const auto expected_file_infos =
+            std::vector{ xl::zip_file_info{ .index = 0, .filepath = zipped_file_path } };
+
+        const auto file_infos = zip_archive | ranges::to<std::vector>;
+        EXPECT_THAT(file_infos, IsFileInfos(expected_file_infos));
+
+        ASSERT_TRUE(zip_archive.contains(zipped_file_path));
+        const auto* inflated_file_content = zip_archive.read_all(zipped_file_path);
+        ASSERT_THAT(inflated_file_content, testing::NotNull());
+        EXPECT_EQ(*inflated_file_content, file_content);
+    }
 }
