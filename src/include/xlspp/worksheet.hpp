@@ -11,6 +11,8 @@ namespace xlsx {
 class worksheet
 {
 public:
+    enum class visibility_state { visible, hidden, very_hidden };
+
     explicit worksheet(int id, std::string name)
         : m_id{ id }
         , m_name{ std::move(name) }
@@ -25,8 +27,10 @@ public:
 
     auto name() const -> const std::string& { return m_name; }
 
-    auto visible() const -> bool { return m_visible; }
-    auto set_visible(bool visible) -> void { m_visible = visible; };
+    auto visibility() const -> visibility_state;
+    auto set_visibility(visibility_state visibility) { m_visibility = visibility; }
+    auto visible() const -> bool { return m_visibility == visibility_state::visible; }
+    auto set_visible(bool visible) -> void { m_visibility = visibility_state::visible; };
 
     auto cell_count() const -> std::size_t { return m_cells.size(); }
 
@@ -55,7 +59,7 @@ private:
 
     int m_id{};
     std::string m_name;
-    bool m_visible{ true };
+    visibility_state m_visibility{ visibility_state::visible };
     std::unordered_map<std::string, cell> m_cells;
 };
 
